@@ -61,3 +61,12 @@ jobs:
           # charts/ is already staged from the detect step
           git commit -m "chore: sync charts for Bindy ${{ steps.diff.outputs.version }}"
           git push
+
+  # Directly invoke release.yml to work around the GITHUB_TOKEN limitation:
+  # pushes made by GITHUB_TOKEN do not fire on:push triggers in other workflows.
+  release:
+    needs: sync
+    if: needs.sync.outputs.changed == 'true'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
