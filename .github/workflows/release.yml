@@ -1,0 +1,42 @@
+name: Release Charts
+
+# Packages and publishes charts to GitHub Pages whenever the charts/ directory
+# changes on main (i.e. after a sync commit or a manual chart edit).
+#
+# Pre-requisites:
+#   1. Enable GitHub Pages on the `gh-pages` branch in repository Settings.
+#   2. The default GITHUB_TOKEN has `contents: write` (granted below).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'charts/**'
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: latest
+
+      - name: Package and release charts
+        uses: helm/chart-releaser-action@v1.6.0
+        with:
+          config: .github/cr.yaml
+        env:
+          CR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
