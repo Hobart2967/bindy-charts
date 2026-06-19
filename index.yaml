@@ -1,3 +1,41 @@
 apiVersion: v1
-entries: {}
-generated: "0001-01-01T00:00:00Z"
+entries:
+  bindy:
+  - apiVersion: v2
+    appVersion: v0.5.2
+    created: "2026-06-19T13:07:14.437429133Z"
+    description: Helm chart for the Bindy BIND9 Kubernetes Operator
+    digest: 754e939c7ab3ba183743f3db851bf02e67d6f51c694d87342965a9162fb24975
+    home: https://github.com/firestoned/bindy
+    keywords:
+    - dns
+    - bind9
+    - operator
+    name: bindy
+    sources:
+    - https://github.com/firestoned/bindy
+    - https://github.com/Hobart2967/bindy-charts
+    type: application
+    urls:
+    - https://github.com/Hobart2967/bindy-charts/releases/download/bindy-0.5.2/bindy-0.5.2.tgz
+    version: 0.5.2
+  bindy-crds:
+  - apiVersion: v2
+    appVersion: v0.5.2
+    created: "2026-06-19T13:07:14.617638737Z"
+    description: CustomResourceDefinitions for the Bindy BIND9 Kubernetes Operator
+    digest: 891de68ad013d848b6bd502ec052f25ec8ae3815367367f8f1cc54dc7348a186
+    home: https://github.com/firestoned/bindy
+    keywords:
+    - dns
+    - bind9
+    - crds
+    name: bindy-crds
+    sources:
+    - https://github.com/firestoned/bindy
+    - https://github.com/Hobart2967/bindy-charts
+    type: application
+    urls:
+    - https://github.com/Hobart2967/bindy-charts/releases/download/bindy-crds-0.5.2/bindy-crds-0.5.2.tgz
+    version: 0.5.2
+generated: "2026-06-19T13:07:14.617648876Z"
