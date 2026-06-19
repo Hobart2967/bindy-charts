@@ -32,6 +32,22 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Bootstrap gh-pages branch if missing
+        run: |
+          if ! git ls-remote --exit-code --heads origin gh-pages > /dev/null 2>&1; then
+            echo "gh-pages branch not found — bootstrapping..."
+            git checkout --orphan gh-pages
+            git rm -rf . > /dev/null
+            printf 'apiVersion: v1\nentries: {}\ngenerated: "0001-01-01T00:00:00Z"\n' > index.yaml
+            git add index.yaml
+            git commit -m "chore: bootstrap gh-pages branch for Helm chart releases"
+            git push origin gh-pages
+            git checkout -
+            echo "gh-pages branch created and pushed."
+          else
+            echo "gh-pages branch already exists, skipping bootstrap."
+          fi
+
       - name: Install Helm
         uses: azure/setup-helm@v4
         with:
