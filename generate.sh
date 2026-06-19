@@ -64,7 +64,7 @@ generate_crd_chart() {
 apiVersion: v2
 name: bindy-crds
 description: CustomResourceDefinitions for the Bindy BIND9 Kubernetes Operator
-type: library
+type: application
 version: ${VERSION}
 appVersion: "${APP_VERSION}"
 keywords:
