@@ -97,6 +97,7 @@ rules:
   - nsrecords
   - srvrecords
   - caarecords
+  - ptrrecords
   verbs:
   - get
   - list
@@ -115,6 +116,7 @@ rules:
   - nsrecords/status
   - srvrecords/status
   - caarecords/status
+  - ptrrecords/status
   verbs:
   - get
   - update
