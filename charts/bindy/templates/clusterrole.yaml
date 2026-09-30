@@ -56,7 +56,6 @@ rules:
   - get
   - list
   - watch
-  - create
   - update
   - patch
 - apiGroups:
@@ -75,7 +74,6 @@ rules:
   - get
   - list
   - watch
-  - create
   - update
   - patch
 - apiGroups:
@@ -102,7 +100,6 @@ rules:
   - get
   - list
   - watch
-  - create
   - update
   - patch
 - apiGroups:
@@ -133,6 +130,17 @@ rules:
   - update
   - patch
   - delete
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
 - apiGroups:
   - ''
   resources:
