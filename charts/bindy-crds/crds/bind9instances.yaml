@@ -148,7 +148,7 @@ spec:
                     description: |-
                       Container image for the RNDC API sidecar
 
-                      Example: "ghcr.io/firestoned/bindcar:v0.8.2"
+                      Example: "ghcr.io/firestoned/bindcar:v0.9.0"
                     nullable: true
                     type: string
                   imagePullPolicy:
@@ -582,7 +582,7 @@ spec:
                         description: |-
                           Container image for the RNDC API sidecar
 
-                          Example: "ghcr.io/firestoned/bindcar:v0.8.2"
+                          Example: "ghcr.io/firestoned/bindcar:v0.9.0"
                         nullable: true
                         type: string
                       imagePullPolicy:
@@ -899,7 +899,7 @@ spec:
                               Default: `"ECDSAP256SHA256"`
 
                               Restricted to an alphanumeric token because it is interpolated unquoted
-                              into the BIND9 `dnssec-policy { ... }` block — `;`, `{`, `}`, `"`, or
+                              into the BIND9 `dnssec-policy { ... }` block; `;`, `{`, `}`, `"`, or
                               whitespace would allow config injection (B-6b).
                             nullable: true
                             pattern: ^[A-Za-z0-9]{1,32}$
@@ -1064,15 +1064,23 @@ spec:
                                 type: object
                               secretRef:
                                 description: |-
-                                  Secret containing DNSSEC keys
+                                  Secret containing DNSSEC keys, shared by every primary (ADR-0012)
 
-                                  Reference to a Kubernetes Secret with DNSSEC key files.
+                                  The Secret must be in the instance's namespace and its name must
+                                  start with `bindy-`. An init container copies its key files into
+                                  BIND's writable key directory before `named` starts.
 
-                                  Secret data format:
-                                  - `K<zone>.+<alg>+<tag>.key` - Public key file
-                                  - `K<zone>.+<alg>+<tag>.private` - Private key file
+                                  Secret data keys cannot contain `+`, so each `+` of a BIND key file
+                                  name is written as `_`, and the copy restores it:
+                                  - `K<zone>._<alg>_<id>.key` - Public key file
+                                  - `K<zone>._<alg>_<id>.private` - Private key file
+                                  - `K<zone>._<alg>_<id>.state` - Optional key state file
 
-                                  Example: `Kexample.com.+013+12345.key`
+                                  Example: `Kexample.com._013_12345.key` becomes `Kexample.com.+013+12345.key`.
+
+                                  `kskLifetime` and `zskLifetime` must be unset or `unlimited`: shared
+                                  keys never roll on their own. Rotate by updating the Secret and
+                                  restarting the pods.
                                 nullable: true
                                 properties:
                                   name:
@@ -1099,7 +1107,7 @@ spec:
 
                               Restricted to an alphanumeric token (e.g. `365d`, `8760h`, `P1Y`,
                               `unlimited`) because it is interpolated unquoted into the BIND9
-                              `dnssec-policy { ... }` block — metacharacters would allow config
+                              `dnssec-policy { ... }` block; metacharacters would allow config
                               injection (B-6b).
                             nullable: true
                             pattern: ^[A-Za-z0-9]{1,32}$
@@ -1141,16 +1149,17 @@ spec:
                             description: |-
                               DNSSEC policy name
 
-                              Name of the DNSSEC policy to apply. Built-in policies:
-                              - `"default"` - Standard policy with ECDSA P-256, 365d KSK, 90d ZSK
+                              Name of the `dnssec-policy` block bindy defines from the settings
+                              below (algorithm, key lifetimes, NSEC/NSEC3). Zones without their own
+                              `dnssecPolicy` are signed with it.
 
-                              Custom policies can be defined in future enhancements.
-
-                              Default: `"default"`
+                              Default: `"bindy"`. BIND's built-in names `"default"`, `"insecure"`
+                              and `"none"` are refused: BIND will not load a configuration that
+                              redefines them.
 
                               The name is restricted to a safe identifier set (`[A-Za-z0-9_-]`, starting
                               alphanumeric, max 63 chars) because it is interpolated into a quoted BIND9
-                              configuration literal — `"`, `;`, `{`, `}` would allow config injection (B-6).
+                              configuration literal; `"`, `;`, `{`, `}` would allow config injection (B-6).
                             nullable: true
                             pattern: ^[A-Za-z0-9][A-Za-z0-9_-]{0,62}$
                             type: string
@@ -1166,12 +1175,15 @@ spec:
                               Default: `"90d"` (3 months)
 
                               Restricted to an alphanumeric token (e.g. `90d`, `2160h`, `P3M`) because
-                              it is interpolated unquoted into the BIND9 `dnssec-policy { ... }` block —
+                              it is interpolated unquoted into the BIND9 `dnssec-policy { ... }` block;
                               metacharacters would allow config injection (B-6b).
                             nullable: true
                             pattern: ^[A-Za-z0-9]{1,32}$
                             type: string
                         type: object
+                        x-kubernetes-validations:
+                        - message: 'keysFrom.secretRef keys are shared by every primary: kskLifetime and zskLifetime must be unset or ''unlimited'''
+                          rule: '!has(self.keysFrom) || !has(self.keysFrom.secretRef) || ((!has(self.kskLifetime) || self.kskLifetime == ''unlimited'') && (!has(self.zskLifetime) || self.zskLifetime == ''unlimited''))'
                       validation:
                         description: |-
                           Enable DNSSEC validation of responses
@@ -1252,7 +1264,7 @@ spec:
 
                           Rendered as BIND9's `rate-limit { responses-per-second N; }`. When unset,
                           a conservative default of `15` is applied (RRL is on by default). Set to
-                          `0` to disable RRL entirely — no `rate-limit` block is emitted.
+                          `0` to disable RRL entirely; no `rate-limit` block is emitted.
                         format: uint32
                         minimum: 0.0
                         nullable: true
@@ -1375,7 +1387,7 @@ spec:
                   role-level block rather than merging with it.
 
                   For a standalone `Bind9Instance` with `spec.replicas` of 2 or more,
-                  the default spread scope is `Instance` — the instance's own replicas
+                  the default spread scope is `Instance`: the instance's own replicas
                   are balanced across zones. For a cluster-managed instance (one Pod
                   each) the default scope is `Role`, balancing this Pod against its
                   sibling instances of the same role.
@@ -1387,13 +1399,13 @@ spec:
 
                       Three distinct states:
 
-                      - **absent** — for a **primary** role with two or more servers, the
+                      - **absent**: for a **primary** role with two or more servers, the
                         operator applies its default: one soft (`ScheduleAnyway`) rule over
                         `topology.kubernetes.io/zone` with `maxSkew: 1`. Secondaries and
                         single-server roles get no constraint unless you ask for one.
-                      - **empty list** (`spread: []`) — explicitly no spread constraints.
+                      - **empty list** (`spread: []`): explicitly no spread constraints.
                         Use this to opt a multi-primary cluster out of the default.
-                      - **non-empty list** — exactly these rules, and no default. This is how
+                      - **non-empty list**: exactly these rules, and no default. This is how
                         secondaries opt *in*.
 
                       At most 8 rules; each becomes one `topologySpreadConstraint`, and every
@@ -1404,7 +1416,7 @@ spec:
 
                         Each rule becomes exactly one entry in the Pod's
                         `spec.topologySpreadConstraints`, with the `labelSelector` generated from
-                        [`SpreadScope`] rather than written by hand — users have no way to know the
+                        [`SpreadScope`] rather than written by hand: users have no way to know the
                         operator's internal Pod labels, and getting the selector wrong silently
                         produces a constraint that does nothing.
 
@@ -1412,7 +1424,7 @@ spec:
 
                         ```yaml
                         spread:
-                          # Spread primaries across zones first — hard requirement.
+                          # Spread primaries across zones first: hard requirement.
                           - topologyKey: topology.kubernetes.io/zone
                             maxSkew: 1
                             whenUnsatisfiable: DoNotSchedule
@@ -1428,7 +1440,7 @@ spec:
                           description: |-
                             Maximum permitted difference in Pod count between any two domains.
 
-                            Default: `1` (the tightest useful value — every domain is filled before
+                            Default: `1` (the tightest useful value: every domain is filled before
                             any domain doubles up).
                           format: int32
                           maximum: 100.0
@@ -1481,7 +1493,7 @@ spec:
                             controller creates three separate `Bind9Instance` resources, each backed by
                             its own single-Pod Deployment. A spread constraint whose label selector
                             matches only its own Deployment's Pods would therefore balance a set of
-                            size one — which is always trivially balanced, and spreads nothing.
+                            size one, which is always trivially balanced, and spreads nothing.
 
                             `scope` selects the label selector the operator generates, and so decides
                             which Pods the scheduler counts per domain.

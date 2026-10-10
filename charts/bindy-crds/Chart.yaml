@@ -2,8 +2,8 @@ apiVersion: v2
 name: bindy-crds
 description: CustomResourceDefinitions for the Bindy BIND9 Kubernetes Operator
 type: application
-version: 0.7.1
-appVersion: "v0.7.1"
+version: 0.8.0
+appVersion: "v0.8.0"
 keywords:
   - dns
   - bind9

@@ -315,12 +315,14 @@ spec:
                   dnssecPolicy: "none"  # Disable signing (cluster has signing enabled)
                   ```
 
-                  **Note**: Custom policies require BIND9 `dnssec-policy` configuration.
-                  Built-in policies: `"default"`, `"none"`
+                  When unset, the zone inherits the signing policy of the instances that
+                  serve it (`global.dnssec.signing.policy`, or `"bindy"` when signing is
+                  enabled with no policy name). Name BIND's built-in `"insecure"` to
+                  unsign a signed zone gracefully, and `"none"` once it is unsigned.
 
                   The name is restricted to a safe identifier set (`[A-Za-z0-9_-]`, starting
                   alphanumeric, max 63 chars) because it is interpolated into a quoted BIND9
-                  configuration literal — `"`, `;`, `{`, `}` would allow config injection (B-6).
+                  configuration literal; `"`, `;`, `{`, `}` would allow config injection (B-6).
                 nullable: true
                 pattern: ^[A-Za-z0-9][A-Za-z0-9_-]{0,62}$
                 type: string
@@ -903,7 +905,8 @@ spec:
                   - Records with `lastReconciledAt == Some(timestamp)` are already configured
 
                   This field is populated by the `DNSZone` controller when evaluating `recordsFrom` selectors.
-                  The timestamp is set by the record operator after successful BIND9 update.
+                  The timestamp is copied from each record's `status.lastUpdated`, which the
+                  record operator sets after a successful BIND9 update.
 
                   **Single Source of Truth:**
                   This status field is authoritative for which records belong to this zone and whether
@@ -935,7 +938,9 @@ spec:
                         - `None` = Record needs reconciliation (new or spec changed)
                         - `Some(timestamp)` = Record already configured, skip reconciliation
 
-                        This field is set by the record operator after successful BIND9 update.
+                        This field is copied by the zone controller from the record's
+                        `status.lastUpdated`, which the record operator sets after a successful
+                        BIND9 update.
                         The zone controller resets it to `None` when spec changes or zone is recreated.
                       format: date-time
                       nullable: true
@@ -988,6 +993,55 @@ spec:
                   The controller clears it only after every record has been successfully
                   pushed to every primary endpoint.
                 type: boolean
+              transferPeers:
+                description: |-
+                  The zone-transfer peers last pushed to every server of this zone
+                  (ADR-0019).
+
+                  Written by the `DNSZone` controller only after every primary accepted
+                  the `allow-transfer` / `also-notify` lists and every secondary the
+                  `primaries` list. A reconcile whose desired peers differ from these
+                  pushes the new lists; one whose peers are unchanged makes no peer
+                  call. Absent on a zone not yet reconciled by a version that records
+                  it, which makes the first such reconcile push to every server.
+
+                  # Example
+
+                  ```yaml
+                  transferPeers:
+                    primaries: ["10.244.1.7", "10.244.2.9"]
+                    secondaries: ["10.244.3.4"]
+                    notify: ["10.96.41.12"]
+                  ```
+                nullable: true
+                properties:
+                  notify:
+                    default: []
+                    description: |-
+                      Addresses a primary sends NOTIFY to (`also-notify`): the ClusterIP of
+                      each secondary instance's Service, reached on port 53.
+                    items:
+                      type: string
+                    type: array
+                  primaries:
+                    default: []
+                    description: |-
+                      IPs of the primary pods a secondary transfers the zone from: the
+                      zone's primary instances' pods that are running, not terminating and
+                      admitted by the zones-loaded gate.
+                    items:
+                      type: string
+                    type: array
+                  secondaries:
+                    default: []
+                    description: |-
+                      IPs of the secondary pods a primary allows to transfer the zone
+                      (`allow-transfer`): the zone's secondary instances' pods that are
+                      running and not terminating.
+                    items:
+                      type: string
+                    type: array
+                type: object
             type: object
         required:
         - spec
